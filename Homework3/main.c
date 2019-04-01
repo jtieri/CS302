@@ -21,10 +21,10 @@ void printError(char* functionName);
 
 
 int main(int argc, char *argv[]) {
-   int processorCount = 0;       /* the number of allocated processors */
-   ProcessorData *processorPool; /* an array of ProcessorData structures */
-   HANDLE *processHandles;       /* an array of handles to processes */
-   unsigned int *jobDurationTimes;   /* an array of the process times to be ran */
+   int processorCount = 0;           /* the number of allocated processors */
+   ProcessorData *processorPool;     /* an array of ProcessorData structures */
+   HANDLE *processHandles;           /* an array of handles to processes */
+   unsigned int *jobDurationTimes;   /* an array of the job duration times to be ran */
 
    if (argc < 3) {
       fprintf(stderr, "usage, %s  SCHEDULE_TYPE  SECONDS...\n", argv[0]);
@@ -37,12 +37,12 @@ int main(int argc, char *argv[]) {
 
    /* read the job duration times off the command-line */
 
-   jobDurationTimes = (unsigned int *) malloc(4 * (argc - 2)); // Allocate memory for the job duration times being passed in from the CLI
+   const int totalProcTimes = argc - 2;
 
-   const unsigned int totalProcTimes = argc - 2;
+   jobDurationTimes = (unsigned int *) malloc(sizeof(unsigned int) * totalProcTimes); // Allocate memory for the job duration times being passed in from the CLI
 
    for (int i = 0; i < totalProcTimes; i++) {
-      jobDurationTimes[i] = argv[i + 2];
+      jobDurationTimes[i] = (unsigned int) atoi(argv[i + 2]);
    }
 
    /* get the processor affinity mask for this process */
@@ -76,25 +76,33 @@ int main(int argc, char *argv[]) {
 
    /* create, and then initialize, the processor pool data structure */
 
-   processorPool = malloc(processorCount * sizeof(ProcessorData));
+   processorPool = (ProcessorData *) malloc(processorCount * sizeof(ProcessorData));
 
    for (int i = 0; i < processorCount; i++) {
       if ((processAffinityMask & 1) && (i <= 1)) {
-         processorPool[i] = {1, 0, 0};
+          processorPool[i].affinityMask = 1;
+          processorPool[i].running = 0;
       } else if ((processAffinityMask & 2) && (i <= 2)) {
-         processorPool[i] = {2, 0, 0};
+          processorPool[i].affinityMask = 2;
+          processorPool[i].running = 0;
       } else if ((processAffinityMask & 4) && (i <= 4)) {
-         processorPool[i] = {4, 0, 0};
+          processorPool[i].affinityMask = 4;
+          processorPool[i].running = 0;
       } else if ((processAffinityMask & 8) && (i <= 8)) {
-         processorPool[i] = {8, 0, 0};
+          processorPool[i].affinityMask = 8;
+          processorPool[i].running = 0;
       } else if ((processAffinityMask & 0x10) && (i <= 0x10)) {
-         processorPool[i] = {16, 0, 0};
+          processorPool[i].affinityMask = 16;
+          processorPool[i].running = 0;
       } else if ((processAffinityMask & 0x20) && (i <= 0x20)) {
-         processorPool[i] = {32, 0, 0};
+          processorPool[i].affinityMask = 32;
+          processorPool[i].running = 0;
       } else if ((processAffinityMask & 0x40) && (i <= 0x40)) {
-         processorPool[i] = {64, 0, 0};
+          processorPool[i].affinityMask = 64;
+          processorPool[i].running = 0;
       } else if ((processAffinityMask & 0x80) && (i <= 0x80)) {
-         processorPool[i] = {128, 0, 0};
+          processorPool[i].affinityMask = 128;
+          processorPool[i].running = 0;
       }
    }
 
@@ -104,7 +112,9 @@ int main(int argc, char *argv[]) {
       unsigned int loopCounter = 0;
 
       STARTUPINFO startupinfo;
-   
+      processHandles = (HANDLE *) malloc(processorCount * sizeof(HANDLE));
+
+      char buffer[256];
       do {
          unsigned int workingJobDurationTime = *jobDurationTimes;
 
@@ -112,48 +122,32 @@ int main(int argc, char *argv[]) {
          startupinfo.cb = sizeof(startupinfo);
 
          char *targetProgramName = "computeProgram_64.exe";
-         sprintf(targetProgramName, "%s %d", targetProgramName, workingJobDurationTime;
+         sprintf(buffer, "%s %d", targetProgramName, workingJobDurationTime);
 
-         if (! CreateProcessA(NULL, targetProgramName, 0, 0, 1, CREATE_SUSPENDED, 0, 0, &startupinfo, *processorPool.processInfo)) {
+         //"C:\\Windows\\system32\\NOTEPAD.EXE"   NORMAL_PRIORITY_CLASS | CREATE_NEW_CONSOLE |
+         if (! CreateProcessA(NULL, buffer, 0, 0, 1, CREATE_SUSPENDED, 0, 0, &startupinfo, &(*processorPool).processInfo)) {
             //TODO handle error of process not creating properly
+            printf("Error creating process....");
+            EXIT_FAILURE;
          }
 
-         //SetProcessAffinityMask()
-         //ResumeThread()
+         processHandles[loopCounter] = (*processorPool).processInfo.hProcess; // Add processes handle to array
+
+         SetProcessAffinityMask(*processHandles, (DWORD) (*processorPool).affinityMask);
+         ResumeThread((*processorPool).processInfo.hThread);
+
+         (*processorPool).running = 1; // Set process to running
 
          processorPool++;
          jobDurationTimes++;
          loopCounter++;
       } while (loopCounter != processorCount);
    }
-   
-
-   /* Repeatedly wait for a process to finish and then,
-      if there are more jobs to run, run a new job on
-      the processor that just became free. */
-   while (1) {
-      DWORD result;
-
-      /* get, from the processor pool, handles to the currently running processes */
-      /* put those handles in an array */
-      /* use a parallel array to keep track of where in the processor pool each handle came from */
-
-      /* check that there are still processes running, if not, quit */
-
-      /* wait for one of the running processes to end */
-      if (WAIT_FAILED == (result = WaitForMultipleObjects(handleCount, processHandles, FALSE, INFINITE)))
-         printError("WaitForMultipleObjects");
-
-      /* translate result from an index in processHandles[] to an index in processorPool[] */
-
-      /* close the handles of the finished process and update the processorPool array */
-
-      /* check if there is another process to run on the processor that just became free */
 
 
-   }
 
-   return 0;
+
+   EXIT_SUCCESS;
 }
 
 
