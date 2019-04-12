@@ -37,9 +37,10 @@ int main(int argc, char *argv[]) {
 
    /* read the job duration times off the command-line */
 
-   const int totalProcTimes = argc - 2;
+   const int totalProcTimes = argc - 2; /* the total number of job times to be ran  */
 
-   jobDurationTimes = (unsigned int *) malloc(sizeof(unsigned int) * totalProcTimes); // Allocate memory for the job duration times being passed in from the CLI
+   // Allocate memory for the job duration times being passed in from the CLI
+   jobDurationTimes = (unsigned int *) malloc(sizeof(unsigned int) * totalProcTimes);
 
    for (int i = 0; i < totalProcTimes; i++) {
       jobDurationTimes[i] = (unsigned int) atoi(argv[i + 2]);
@@ -58,19 +59,33 @@ int main(int argc, char *argv[]) {
 
    if (processAffinityMask & 1) {
       processorCount++;
-   } else if (processAffinityMask & 2) {
+   }
+
+   if (processAffinityMask & 2) {
       processorCount++;
-   } else if (processAffinityMask & 4) {
+   }
+
+   if (processAffinityMask & 4) {
       processorCount++;
-   } else if (processAffinityMask & 8) {
+   }
+
+   if (processAffinityMask & 8) {
       processorCount++;
-   } else if (processAffinityMask & 0x10) {
+   }
+
+   if (processAffinityMask & 0x10) {
       processorCount++;
-   } else if (processAffinityMask & 0x20) {
+   }
+
+   if (processAffinityMask & 0x20) {
       processorCount++;
-   } else if (processAffinityMask & 0x40) {
+   }
+
+   if (processAffinityMask & 0x40) {
       processorCount++;
-   } else if (processAffinityMask & 0x80) {
+   }
+
+   if (processAffinityMask & 0x80) {
       processorCount++;
    }
 
@@ -112,7 +127,6 @@ int main(int argc, char *argv[]) {
       unsigned int loopCounter = 0;
 
       STARTUPINFO startupinfo;
-      processHandles = (HANDLE *) malloc(processorCount * sizeof(HANDLE));
 
       char buffer[256];
       do {
@@ -121,22 +135,18 @@ int main(int argc, char *argv[]) {
          ZeroMemory(&startupinfo, sizeof(startupinfo));
          startupinfo.cb = sizeof(startupinfo);
 
-         char *targetProgramName = "computeProgram_64.exe";
+         char *targetProgramName = "computeProgram_64_debug.exe";
          sprintf(buffer, "%s %d", targetProgramName, workingJobDurationTime);
 
-         //"C:\\Windows\\system32\\NOTEPAD.EXE"   NORMAL_PRIORITY_CLASS | CREATE_NEW_CONSOLE |
          if (! CreateProcessA(NULL, buffer, 0, 0, 1, CREATE_SUSPENDED, 0, 0, &startupinfo, &(*processorPool).processInfo)) {
-            //TODO handle error of process not creating properly
-            printf("Error creating process....");
-            EXIT_FAILURE;
+             printError("CreateProcessA ");
+             EXIT_FAILURE;
          }
 
-         processHandles[loopCounter] = (*processorPool).processInfo.hProcess; // Add processes handle to array
-
-         SetProcessAffinityMask(*processHandles, (DWORD) (*processorPool).affinityMask);
+         SetProcessAffinityMask((*processorPool).processInfo.hProcess, (DWORD) (*processorPool).affinityMask);
          ResumeThread((*processorPool).processInfo.hThread);
 
-         (*processorPool).running = 1; // Set process to running
+         (*processorPool).running = 1; // set process to running
 
          processorPool++;
          jobDurationTimes++;
@@ -144,8 +154,55 @@ int main(int argc, char *argv[]) {
       } while (loopCounter != processorCount);
    }
 
+   processHandles = (HANDLE *) malloc(processorCount * sizeof(HANDLE));
+
+    /* Repeatedly wait for a process to finish and then,
+       if there are more jobs to run, run a new job on
+       the processor that just became free. */
+    while (1) {
+        DWORD result;
+        DWORD handleCount;
+
+        /* get, from the processor pool, handles to the currently running processes */
+        /* put those handles in an array */
+        /* use a parallel array to keep track of where in the processor pool each handle came from */
+        for (int i = 0; i < processorCount; i++) {
+            if (processorPool[i].running) {
+                processHandles[i] = processorPool[i].processInfo.hProcess;
+                handleCount++;
+            }
+        }
+
+        /* check that there are still processes running, if not, quit */
+        unsigned int quitLoop = 1;
+
+        for (int i = 0; i < handleCount; i++) {
+            if (processorPool[i].running) {
+                quitLoop = 0;
+                break;
+            }
+        }
+
+        if (quitLoop) {
+            break;
+        }
+
+        /* wait for one of the running processes to end */
+        if (WAIT_FAILED == (result = WaitForMultipleObjects(handleCount, processHandles, FALSE, INFINITE))) {
+            printError("WaitForMultipleObjects");
+        }
 
 
+        /* translate result from an index in processHandles[] to an index in processorPool[] */
+
+        /* close the handles of the finished process and update the processorPool array */
+        CloseHandle(processHandles[result]);
+
+        processorPool[result].running = 0;
+
+        /* check if there is another process to run on the processor that just became free */
+
+    }
 
    EXIT_SUCCESS;
 }
