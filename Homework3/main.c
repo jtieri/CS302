@@ -154,8 +154,6 @@ int main(int argc, char *argv[]) {
       } while (loopCounter != processorCount);
    }
 
-   processHandles = (HANDLE *) malloc(processorCount * sizeof(HANDLE));
-
     /* Repeatedly wait for a process to finish and then,
        if there are more jobs to run, run a new job on
        the processor that just became free. */
@@ -166,6 +164,8 @@ int main(int argc, char *argv[]) {
         /* get, from the processor pool, handles to the currently running processes */
         /* put those handles in an array */
         /* use a parallel array to keep track of where in the processor pool each handle came from */
+        processHandles = (HANDLE *) malloc(processorCount * sizeof(HANDLE));
+
         for (int i = 0; i < processorCount; i++) {
             if (processorPool[i].running) {
                 processHandles[i] = processorPool[i].processInfo.hProcess;
@@ -188,10 +188,11 @@ int main(int argc, char *argv[]) {
         }
 
         /* wait for one of the running processes to end */
-        if (WAIT_FAILED == (result = WaitForMultipleObjects(handleCount, processHandles, FALSE, INFINITE))) {
-            printError("WaitForMultipleObjects");
+        if (handleCount) {
+            if (WAIT_FAILED == (result = WaitForMultipleObjects(handleCount, processHandles, FALSE, INFINITE))) {
+                printError("WaitForMultipleObjects");
+            }
         }
-
 
         /* translate result from an index in processHandles[] to an index in processorPool[] */
 
@@ -206,13 +207,6 @@ int main(int argc, char *argv[]) {
 
    EXIT_SUCCESS;
 }
-
-
-
-
-
-
-
 
 
 /****************************************************************
