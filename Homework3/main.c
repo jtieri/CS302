@@ -18,6 +18,8 @@ typedef struct processor_data {
 /* function prototypes */
 void printError(char* functionName);
 
+void swap(unsigned int * array1, unsigned int * array2);
+
 
 
 int main(int argc, char *argv[]) {
@@ -25,6 +27,9 @@ int main(int argc, char *argv[]) {
    ProcessorData *processorPool;     /* an array of ProcessorData structures */
    HANDLE *processHandles;           /* an array of handles to processes */
    unsigned int *jobDurationTimes;   /* an array of the job duration times to be ran */
+   unsigned int jobsRan = 0;         /* the number of jobs ran so far by the scheduler */
+   STARTUPINFO startupinfo;
+   char buffer[256];                 /* buffer used to load each process with the job time */
 
    if (argc < 3) {
       fprintf(stderr, "usage, %s  SCHEDULE_TYPE  SECONDS...\n", argv[0]);
@@ -35,18 +40,60 @@ int main(int argc, char *argv[]) {
       return 0;
    }
 
+   printf("The scheduler type selected was %d \n", atoi(argv[1]));
+
    /* read the job duration times off the command-line */
 
-   const int totalProcTimes = argc - 2; /* the total number of job times to be ran  */
+   const int totalJobTimes = argc - 2; // the total number of job times to be ran
+
+   printf("The total number of jobs to be ran: %d \n", totalJobTimes);
 
    // Allocate memory for the job duration times being passed in from the CLI
-   jobDurationTimes = (unsigned int *) malloc(sizeof(unsigned int) * totalProcTimes);
+   jobDurationTimes = (unsigned int *) malloc(sizeof(unsigned int) * totalJobTimes);
 
-   for (int i = 0; i < totalProcTimes; i++) {
-      jobDurationTimes[i] = (unsigned int) atoi(argv[i + 2]);
+   printf("The job times to be ran are: ");
+
+   for (int i = 0; i < totalJobTimes; i++) {
+       jobDurationTimes[i] = (unsigned int) atoi(argv[i + 2]);
+       printf("%d  ", jobDurationTimes[i]);
    }
 
-   /* get the processor affinity mask for this process */
+   printf(" \n");
+
+   /* sort the array of times based on the scheduler type selected at runtime */
+   unsigned int tmpVal = 0;
+
+   if (atoi(argv[1]) == 1) {
+       // Sort shortest job first
+       for (int i = 0; i < totalJobTimes - 1; i++) {
+           for (int j = i + 1; j < totalJobTimes; j++) {
+               if (jobDurationTimes[i] >  jobDurationTimes[j]) {
+                   swap(&jobDurationTimes[i],  &jobDurationTimes[j]);
+               }
+           }
+       }
+
+   } else if (atoi(argv[1]) == 2) {
+       // Sort longest job first
+       for (int i = 0; i < totalJobTimes - 1; i++) {
+           for (int j = i + 1; j < totalJobTimes; j++) {
+               if (jobDurationTimes[i] <  jobDurationTimes[j]) {
+                   swap(&jobDurationTimes[i],  &jobDurationTimes[j]);
+               }
+           }
+       }
+   }
+
+   printf("The sorted job times to be ran are: ");
+
+   for (int i = 0; i < totalJobTimes; i++) {
+       printf("%d  ", jobDurationTimes[i]);
+   }
+
+   printf(" \n");
+
+
+    /* get the processor affinity mask for this process */
 
    HANDLE currentProcessHandle = GetCurrentProcess(); // Get a handle to the program
 
@@ -89,48 +136,56 @@ int main(int argc, char *argv[]) {
       processorCount++;
    }
 
+   printf("The total number of processors to have jobs delegated to is: %d \n", processorCount);
+
    /* create, and then initialize, the processor pool data structure */
 
    processorPool = (ProcessorData *) malloc(processorCount * sizeof(ProcessorData));
 
    for (int i = 0; i < processorCount; i++) {
-      if ((processAffinityMask & 1) && (i <= 1)) {
+      if ((processAffinityMask & 1) && (i == 0)) {
           processorPool[i].affinityMask = 1;
           processorPool[i].running = 0;
-      } else if ((processAffinityMask & 2) && (i <= 2)) {
+          printf("ProcessorData created on processor %d with affinity mask %d \n", i + 1, processorPool[i].affinityMask);
+      } else if ((processAffinityMask & 2) && (i == 1)) {
           processorPool[i].affinityMask = 2;
           processorPool[i].running = 0;
-      } else if ((processAffinityMask & 4) && (i <= 4)) {
+          printf("ProcessorData created on processor %d with affinity mask %d \n", i + 1, processorPool[i].affinityMask);
+      } else if ((processAffinityMask & 4) && (i == 2)) {
           processorPool[i].affinityMask = 4;
           processorPool[i].running = 0;
-      } else if ((processAffinityMask & 8) && (i <= 8)) {
+          printf("ProcessorData created on processor %d with affinity mask %d \n", i + 1, processorPool[i].affinityMask);
+      } else if ((processAffinityMask & 8) && (i == 3)) {
           processorPool[i].affinityMask = 8;
           processorPool[i].running = 0;
-      } else if ((processAffinityMask & 0x10) && (i <= 0x10)) {
+          printf("ProcessorData created on processor %d with affinity mask %d \n", i + 1, processorPool[i].affinityMask);
+      } else if ((processAffinityMask & 0x10) && (i == 4)) {
           processorPool[i].affinityMask = 16;
           processorPool[i].running = 0;
-      } else if ((processAffinityMask & 0x20) && (i <= 0x20)) {
+          printf("ProcessorData created on processor %d with affinity mask %d \n", i + 1, processorPool[i].affinityMask);
+      } else if ((processAffinityMask & 0x20) && (i == 5)) {
           processorPool[i].affinityMask = 32;
           processorPool[i].running = 0;
-      } else if ((processAffinityMask & 0x40) && (i <= 0x40)) {
+          printf("ProcessorData created on processor %d with affinity mask %d \n", i + 1, processorPool[i].affinityMask);
+      } else if ((processAffinityMask & 0x40) && (i == 6)) {
           processorPool[i].affinityMask = 64;
           processorPool[i].running = 0;
-      } else if ((processAffinityMask & 0x80) && (i <= 0x80)) {
+          printf("ProcessorData created on processor %d with affinity mask %d \n", i + 1, processorPool[i].affinityMask);
+      } else if ((processAffinityMask & 0x80) && (i == 7)) {
           processorPool[i].affinityMask = 128;
           processorPool[i].running = 0;
+          printf("ProcessorData created on processor %d with affinity mask %d \n", i + 1, processorPool[i].affinityMask);
       }
    }
 
    /* start the first group of processes */
 
+   unsigned int workingJobDurationTime = 0;
+
    if (processorCount) {
-      unsigned int loopCounter = 0;
-
-      STARTUPINFO startupinfo;
-
-      char buffer[256];
       do {
-         unsigned int workingJobDurationTime = *jobDurationTimes;
+         workingJobDurationTime = *jobDurationTimes;
+         printf("The current job time to be ran is: %d \n", workingJobDurationTime); // Test
 
          ZeroMemory(&startupinfo, sizeof(startupinfo));
          startupinfo.cb = sizeof(startupinfo);
@@ -138,7 +193,7 @@ int main(int argc, char *argv[]) {
          char *targetProgramName = "computeProgram_64_debug.exe";
          sprintf(buffer, "%s %d", targetProgramName, workingJobDurationTime);
 
-         if (! CreateProcessA(NULL, buffer, 0, 0, 1, CREATE_SUSPENDED, 0, 0, &startupinfo, &(*processorPool).processInfo)) {
+         if (! CreateProcessA(NULL, buffer, 0, 0, 1, CREATE_SUSPENDED | CREATE_NEW_CONSOLE, 0, 0, &startupinfo, &(*processorPool).processInfo)) {
              printError("CreateProcessA ");
              EXIT_FAILURE;
          }
@@ -150,64 +205,89 @@ int main(int argc, char *argv[]) {
 
          processorPool++;
          jobDurationTimes++;
-         loopCounter++;
-      } while (loopCounter != processorCount);
+         jobsRan++;
+      } while (jobsRan != processorCount);
    }
 
     /* Repeatedly wait for a process to finish and then,
        if there are more jobs to run, run a new job on
        the processor that just became free. */
-    while (1) {
-        DWORD result;
-        DWORD handleCount;
+    if (processorCount) {
+        while (1) {
+            DWORD result;
+            DWORD handleCount;
 
-        /* get, from the processor pool, handles to the currently running processes */
-        /* put those handles in an array */
-        /* use a parallel array to keep track of where in the processor pool each handle came from */
-        processHandles = (HANDLE *) malloc(processorCount * sizeof(HANDLE));
+            /* get, from the processor pool, handles to the currently running processes */
+            /* put those handles in an array */
+            /* use a parallel array to keep track of where in the processor pool each handle came from */
+            processHandles = (HANDLE *) malloc(processorCount * sizeof(HANDLE));
 
-        for (int i = 0; i < processorCount; i++) {
-            if (processorPool[i].running) {
-                processHandles[i] = processorPool[i].processInfo.hProcess;
-                handleCount++;
+            for (int i = 0; i < processorCount; i++) {
+                if (processorPool[i].running) {
+                    processHandles[i] = (const HANDLE ) processorPool[i].processInfo.hProcess;
+                    handleCount++;
+                }
             }
-        }
 
-        /* check that there are still processes running, if not, quit */
-        unsigned int quitLoop = 1;
+            /* check that there are still processes running, if not, quit */
+            unsigned int quitLoop = 1;
 
-        for (int i = 0; i < handleCount; i++) {
-            if (processorPool[i].running) {
-                quitLoop = 0;
+            for (int i = 0; i < handleCount; i++) {
+                if (processorPool[i].running) {
+                    quitLoop = 0;
+                    break;
+                }
+            }
+
+            if (quitLoop) {
                 break;
             }
-        }
 
-        if (quitLoop) {
-            break;
-        }
-
-        /* wait for one of the running processes to end */
-        if (handleCount) {
+            /* wait for one of the running processes to end */
             if (WAIT_FAILED == (result = WaitForMultipleObjects(handleCount, processHandles, FALSE, INFINITE))) {
                 printError("WaitForMultipleObjects");
             }
+
+            /* close the handles of the finished process and update the processorPool array */
+            CloseHandle(processHandles[result]);
+
+            processorPool[result].running = 0;
+
+            /* check if there is another process to run on the processor that just became free */
+            if (jobsRan < totalJobTimes) {
+                workingJobDurationTime = jobDurationTimes[jobsRan - 1];
+
+                printf("The current job time to be ran is: %d \n", workingJobDurationTime); 
+
+                ZeroMemory(&startupinfo, sizeof(startupinfo));
+                startupinfo.cb = sizeof(startupinfo);
+
+                char *targetProgramName = "computeProgram_64_debug.exe";
+                sprintf(buffer, "%s %d", targetProgramName, workingJobDurationTime);
+
+                if (! CreateProcessA(NULL, buffer, 0, 0, 1, CREATE_SUSPENDED | CREATE_NEW_CONSOLE, 0, 0, &startupinfo, &processorPool[result].processInfo)) {
+                    printError("CreateProcessA ");
+                    EXIT_FAILURE;
+                }
+
+                SetProcessAffinityMask(processorPool[result].processInfo.hProcess, (DWORD) processorPool[result].affinityMask);
+                ResumeThread(processorPool[result].processInfo.hThread);
+
+                processorPool[result].running = 1; // set process to running
+
+                jobsRan++;
+            }
         }
-
-        /* translate result from an index in processHandles[] to an index in processorPool[] */
-
-        /* close the handles of the finished process and update the processorPool array */
-        CloseHandle(processHandles[result]);
-
-        processorPool[result].running = 0;
-
-        /* check if there is another process to run on the processor that just became free */
-
     }
 
    EXIT_SUCCESS;
 }
 
+void swap(unsigned int * array1, unsigned int * array2) {
+    unsigned int tmpVal = *array2;
+    *array2 = *array1;
+    *array1 = tmpVal;
+}
 
 /****************************************************************
    The following function can be used to print out "meaningful"
