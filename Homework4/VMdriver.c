@@ -70,10 +70,10 @@ void printError(char* functionName); // prototype for the function, defined belo
 int main(int argc, char *argv[]) {
     int time, vmOp, units, access;
     LPVOID vmAddress;
-    DWORD flProtect, currentProcessId;
+    DWORD flProtect, flProtectCopy, currentProcessId;
     STARTUPINFO startupInfo;
-    PROCESSINFORMATION processInfo;
-    char commandLine = 0;
+    PROCESS_INFORMATION processInfo;
+    char commandLine[256];
 
     // You need to provide the code that starts up the
     // VMmapper.exe program with the PID of this program
@@ -81,9 +81,9 @@ int main(int argc, char *argv[]) {
     // GetCurrentProcessId() to get this program's PID at
     // runtime.
 
-    currentProcessId = GetCurrentProcessID();
+    currentProcessId = GetCurrentProcessId();
 
-    sprintf(&commandLine, "%s %d", "VMmapper", currentProcessId);
+    sprintf(commandLine, "%s %d", "VMmapper", (int) currentProcessId);
 
     ZeroMemory(&startupInfo, sizeof(startupInfo));
     startupInfo.cb = sizeof(startupInfo);
@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
                 flProtect = 64;
                 break;
             default:
-                flProtect = accessModifier == 6;
+                flProtect = access == 6;
                 break;
         }
 
@@ -154,10 +154,10 @@ int main(int argc, char *argv[]) {
 
                 break;
             case 6:  // Create a guard page
-                DWORD flProtectCopy = flProtect;
-                flProtectCopy >> 1 |= 1;
+                //flProtectCopy = flProtect >> 1;
+                //flProtectCopy |= 1;
 
-                if (! VirtualAlloc(vmAddress, 0x1000u, MEM_COMMIT, flProtectCopy) ) {
+                if (! VirtualAlloc(vmAddress, units, MEM_COMMIT, flProtect) ) {
                     printError("VirtualAlloc");
                 }
 
